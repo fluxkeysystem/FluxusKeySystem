@@ -34,11 +34,43 @@ jobs:
           key: key-system-state-restore
           restore-keys: key-system-state-
 
-      - name: Run Key Server
+      - name: Start Server and Tunnel
         env:
           MAX_RUNTIME_MIN: "340"
           PORT: 3000
-        run: node server.js
+        run: |
+          # 1. Start the Node.js server in the background
+          node server.js &
+          
+          # 2. Download Cloudflare Tunnel client
+          wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O cloudflared
+          chmod +x cloudflared
+          
+          # 3. Start the tunnel to expose port 3000
+          ./cloudflared tunnel --url http://localhost:3000 > tunnel.log 2>&1 &
+          
+          # 4. Wait for the URL and print it
+          echo "Waiting for Cloudflare to assign a public URL..."
+          URL=""
+          for i in {1..30}; do
+            URL=$(grep -o 'https://.*\.trycloudflare\.com' tunnel.log | head -n 1)
+            if [ -n "$URL" ]; then break; fi
+            sleep 1
+          done
+          
+          if [ -z "$URL" ]; then
+            echo "❌ Failed to get public URL. Tunnel log:"
+            cat tunnel.log
+            exit 1
+          fi
+          
+          echo "======================================================"
+          echo "🌐 YOUR LIVE WEBSITE URL IS: $URL"
+          echo "======================================================"
+          echo "⚠️ WARNING: This URL will change when the workflow restarts (every 6 hours)."
+          
+          # 5. Keep the job alive
+          sleep 340m
 
       - uses: actions/cache/save@v4
         if: always()
