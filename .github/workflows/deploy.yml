@@ -5,7 +5,7 @@ on:
     branches: [main, master]
   workflow_dispatch:
   schedule:
-    - cron: "0 */23 * * *"
+    - cron: "0 */6 * * *"
 
 concurrency:
   group: key-system
@@ -38,7 +38,7 @@ jobs:
         run: |
           echo "=========================================="
           echo "✅ Key System is running"
-          echo "🌐 URL: https://piluyt2801.github.io/FluxSite/"
+          echo "🌐 URL: https://fluxkeysystem.github.io/FluxusKeySystem/"
           echo "=========================================="
 
       - name: Run Server
