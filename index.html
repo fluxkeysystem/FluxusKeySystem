@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Key System</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; padding: 1rem; }
+    .step { border: 1px solid #ccc; border-radius: 8px; padding: 1rem; margin: 1rem 0; }
+    .step.done { background: #e8f5e9; border-color: #4caf50; }
+    .step.locked { opacity: .5; pointer-events: none; }
+    button { padding: .6rem 1.2rem; font-size: 1rem; cursor: pointer; }
+    #keyBox { font-size: 1.4rem; font-weight: bold; background: #f5f5f5; padding: 1rem; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <h1>Get your key</h1>
+  <p>Complete both steps below.</p>
+
+  <div id="step1" class="step">
+    <h2>Step 1</h2>
+    <button id="btn1">Open Step 1</button>
+    <span id="step1Status">⏳ Waiting</span>
+  </div>
+
+  <div id="step2" class="step locked">
+    <h2>Step 2</h2>
+    <button id="btn2" disabled>Open Step 2</button>
+    <span id="step2Status">⏳ Waiting</span>
+  </div>
+
+  <div id="keyArea" style="display:none;">
+    <h2>Your key</h2>
+    <div id="keyBox"></div>
+    <p>This key expires in 24 hours.</p>
+  </div>
+
+  <script>
+    // IMPORTANT: You MUST put your backend URL here once you have it
+    const BACKEND_URL = ''; 
+    
+    // LootLabs Links
+    const LOOTLABS_STEP1 = 'https://LOOTLABS_LINK_STEP1';
+    const LOOTLABS_STEP2 = 'https://LOOTLABS_LINK_STEP2';
+
+    let sessionId = localStorage.getItem('key_session');
+    if (!sessionId) {
+      sessionId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      localStorage.setItem('key_session', sessionId);
+    }
+
+    document.getElementById('btn1').onclick = () => {
+      window.open(`${LOOTLABS_STEP1}&puid=step1_${sessionId}`, '_blank');
+    };
+    document.getElementById('btn2').onclick = () => {
+      window.open(`${LOOTLABS_STEP2}&puid=step2_${sessionId}`, '_blank');
+    };
+
+    async function initSession() {
+      if (!BACKEND_URL) return;
+      try {
+        await fetch(`${BACKEND_URL}/api/session?id=${sessionId}`);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function poll() {
+      if (!BACKEND_URL) {
+        document.getElementById('step1Status').textContent = '❌ Backend URL missing in index.html';
+        return;
+      }
+      try {
+        const r = await fetch(`${BACKEND_URL}/api/status?session=${sessionId}`);
+        if (r.status === 404) return;
+        const data = await r.json();
+        
+        if (data.step1) { 
+          document.getElementById('step1').classList.add('done'); 
+          document.getElementById('btn1').disabled = true;
+          document.getElementById('step2').classList.remove('locked'); 
+          document.getElementById('btn2').disabled = false;
+        }
+        if (data.step2) { 
+          document.getElementById('step2').classList.add('done'); 
+          document.getElementById('btn2').disabled = true;
+        }
+        
+        document.getElementById('step1Status').textContent = data.step1 ? '✅ Completed' : '⏳ Waiting';
+        document.getElementById('step2Status').textContent = data.step2 ? '✅ Completed' : '⏳ Waiting';
+        
+        if (data.key) {
+          document.getElementById('keyArea').style.display = 'block';
+          document.getElementById('keyBox').textContent = data.key;
+        }
+      } catch (e) {
+        console.error('Polling error:', e);
+      }
+    }
+    
+    initSession();
+    setInterval(poll, 2000);
+    poll();
+  </script>
+</body>
+</html>
