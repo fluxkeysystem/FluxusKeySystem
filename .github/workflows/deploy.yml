@@ -1,40 +1,53 @@
-name: Deploy to GitHub Pages
+name: Key System Server
+
 on:
   push:
-    branches: [ main ]
+    branches: [main, master]
   workflow_dispatch:
+  schedule:
+    - cron: "0 */6 * * *"
+
+concurrency:
+  group: key-system
+  cancel-in-progress: false
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
+  actions: write
 
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  run:
     runs-on: ubuntu-latest
+    timeout-minutes: 355
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+      - uses: actions/setup-node@v4
         with:
-          path: '.'
+          node-version: 22
 
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - run: npm install
 
-      - name: Output Site URL
-        run: |
-          echo "=========================================="
-          echo "✅ Site deployed successfully"
-          echo "🌐 URL: ${{ steps.deployment.outputs.page_url }}"
-          echo "=========================================="
+      - uses: actions/cache/restore@v4
+        with:
+          path: data
+          key: key-system-state-restore
+          restore-keys: key-system-state-
+
+      - name: Run Key Server
+        env:
+          MAX_RUNTIME_MIN: "340"
+          PORT: 3000
+        run: node server.js
+
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: data
+          key: key-system-state-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Start next run
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run deploy.yml --ref "${{ github.ref_name }}"
