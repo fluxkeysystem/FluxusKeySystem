@@ -7,10 +7,6 @@ const path = require('path');
 const app = express();
 app.use(express.json());
 
-// Replace these with your real LootLabs links
-const LOOTLABS_STEP1 = 'https://LOOTLABS_LINK_STEP1';
-const LOOTLABS_STEP2 = 'https://LOOTLABS_LINK_STEP2';
-
 const KEY_TTL_MS = 24 * 60 * 60 * 1000;
 const DATA_DIR = process.env.DATA_DIR || "./data";
 const STATE_FILE = path.join(DATA_DIR, "state.json");
@@ -49,84 +45,18 @@ function saveState() {
 loadState();
 setInterval(saveState, 10000);
 
-function createSession() {
-  const id = crypto.randomBytes(16).toString('hex');
-  sessions[id] = { step1: false, step2: false, key: null, expiresAt: null };
-  saveState();
-  return id;
-}
-
 function generateKey() {
   return crypto.randomBytes(16).toString('hex').toUpperCase();
 }
 
-app.get('/', (req, res) => {
-  const sessionId = createSession();
-  res.send(`<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Key System</title>
-  <style>
-    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; padding: 1rem; }
-    .step { border: 1px solid #ccc; border-radius: 8px; padding: 1rem; margin: 1rem 0; }
-    .step.done { background: #e8f5e9; border-color: #4caf50; }
-    .step.locked { opacity: .5; pointer-events: none; }
-    button { padding: .6rem 1.2rem; font-size: 1rem; cursor: pointer; }
-    #keyBox { font-size: 1.4rem; font-weight: bold; background: #f5f5f5; padding: 1rem; border-radius: 8px; }
-  </style>
-</head>
-<body>
-  <h1>Get your key</h1>
-  <p>Complete both steps below.</p>
-
-  <div id="step1" class="step locked">
-    <h2>Step 1</h2>
-    <button id="btn1">Open Step 1</button>
-    <span id="step1Status">⏳ Waiting</span>
-  </div>
-
-  <div id="step2" class="step locked">
-    <h2>Step 2</h2>
-    <button id="btn2">Open Step 2</button>
-    <span id="step2Status">⏳ Waiting</span>
-  </div>
-
-  <div id="keyArea" style="display:none;">
-    <h2>Your key</h2>
-    <div id="keyBox"></div>
-    <p>This key expires in 24 hours.</p>
-  </div>
-
-  <script>
-    const sessionId = '${sessionId}';
-    document.getElementById('btn1').onclick = () =>
-      window.open('${LOOTLABS_STEP1}&puid=step1_' + sessionId, '_blank');
-    document.getElementById('btn2').onclick = () =>
-      window.open('${LOOTLABS_STEP2}&puid=step2_' + sessionId, '_blank');
-
-    async function poll() {
-      const r = await fetch('/api/status?session=' + sessionId);
-      const data = await r.json();
-      const s1 = document.getElementById('step1');
-      const s2 = document.getElementById('step2');
-      if (data.step1) { s1.classList.add('done'); s1.classList.remove('locked'); }
-      else { s1.classList.add('locked'); s1.classList.remove('done'); }
-      if (data.step1) s2.classList.remove('locked');
-      else s2.classList.add('locked');
-      if (data.step2) { s2.classList.add('done'); s2.classList.remove('locked'); }
-      document.getElementById('step1Status').textContent = data.step1 ? '✅ Completed' : '⏳ Waiting';
-      document.getElementById('step2Status').textContent = data.step2 ? '✅ Completed' : '⏳ Waiting';
-      if (data.key) {
-        document.getElementById('keyArea').style.display = 'block';
-        document.getElementById('keyBox').textContent = data.key;
-      }
-    }
-    setInterval(poll, 2000);
-    poll();
-  </script>
-</body>
-</html>`);
+app.get('/api/session', (req, res) => {
+  const id = req.query.id;
+  if (!id) return res.status(400).json({ error: 'Missing id' });
+  if (!sessions[id]) {
+    sessions[id] = { step1: false, step2: false, key: null, expiresAt: null };
+    saveState();
+  }
+  res.json({ status: 'ok' });
 });
 
 app.get('/api/status', (req, res) => {
