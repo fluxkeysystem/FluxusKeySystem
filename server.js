@@ -7,6 +7,7 @@ const path = require('path');
 const app = express();
 app.use(express.json());
 
+// Replace these with your real LootLabs links
 const LOOTLABS_STEP1 = 'https://LOOTLABS_LINK_STEP1';
 const LOOTLABS_STEP2 = 'https://LOOTLABS_LINK_STEP2';
 
