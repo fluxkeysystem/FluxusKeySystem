@@ -1,0 +1,14 @@
+name: Deploy Key System
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: npm ci
+      - name: Restart service
+        run: sudo systemctl restart lootlabs-key
